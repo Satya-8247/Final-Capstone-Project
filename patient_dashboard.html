@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Dashboard</title>
+    <style>
+        /* General Styles */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+
+        h2, h3 {
+            text-align: center;
+            color: #2c3e50;
+            margin-top: 20px;
+        }
+
+        h4 {
+            color: #7f8c8d;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+            transform: scale(1.05);
+        }
+
+        button:active {
+            transform: scale(1);
+        }
+
+        #logout {
+            background-color: #e74c3c;
+        }
+
+        #logout:hover {
+            background-color: #c0392b;
+        }
+
+        /* Form Elements */
+        select, input {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 100%;
+            margin: 10px 0;
+            transition: border-color 0.3s;
+        }
+
+        select:focus, input:focus {
+            border-color: #3498db;
+        }
+
+        /* Table Styles */
+        table {
+            width: 80%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #f2f2f2;
+            transition: background-color 0.3s;
+        }
+
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+
+        tr:hover td {
+            background-color: #ecf0f1;
+        }
+
+        td button {
+            background-color: #f39c12;
+            border-radius: 5px;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+
+        td button:hover {
+            background-color: #e67e22;
+            transform: scale(1.05);
+        }
+
+        /* Time Slot Section */
+        #timeSlots label {
+            display: block;
+            margin-bottom: 10px;
+            transition: color 0.3s;
+        }
+
+        #timeSlots input {
+            margin-right: 10px;
+        }
+
+        #timeSlots label:hover {
+            color: #3498db;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            table {
+                width: 100%;
+            }
+
+            #doctorSelect, #bookAppointment {
+                width: 100%;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+
+        /* Transition for page elements */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            0% {
+                opacity: 0;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+
+        /* Simple Modal Styling */
+#timeSlotModal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 400px;
+    text-align: center;
+}
+
+.close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+    </style>
+</head>
+<body>
+    <div class="fade-in">
+        <h2>Patient Dashboard</h2>
+
+        <!-- Existing Appointments -->
+        <h3>Your Appointments</h3>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>Doctor</th> 
+                    <th>specialization</th>
+                    <th>Time</th>
+                    <th>Date</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="appointmentsTable"></tbody>
+        </table> 
+
+        <!-- Modal structure -->
+<div id="timeSlotModal" style="display: none;">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <h3>Select a new time slot:</h3>
+        <div id="timeSlotsContainer"></div>
+        <button id="submitButton" onclick="submitTimeSlot()">Submit</button>
+    </div>
+</div>
+
+
+        <!-- Available Doctors & Booking -->
+        <h3>Book a New Appointment</h3>
+        <label for="doctorSelect">Select Doctor:</label>
+        <select id="doctorSelect">
+            <option value="">Loading...</option>
+        </select>
+
+        <h4>Available Time Slots:</h4>
+        <div id="timeSlots"></div>
+
+        <!-- Add this below the Time Slots section -->
+<h4>Select Date:</h4>
+<select id="dateSelect"></select>
+
+
+        <button id="bookAppointment">Book Appointment</button>
+
+        <br><br>
+        <button id="logout" onclick="change()"`>Logout</button>
+    </div>
+
+    <script> 
+
+       // Assume stored during login 
+        const Message = localStorage.getItem("message"); 
+        if (!Message) {
+            alert("You must log in first.");
+            localStorage.removeItem("message");
+            window.location.href = "patient_signup.html";  
+            
+        }
+        const patientname = localStorage.getItem("patientName"); 
+        
+        async function loadAppointments() {
+    const response = await fetch(`http://localhost:5000/appointments/${patientname}`);
+    const data = await response.json();
+    const appointments = data.appointments;
+
+    const tableBody = document.getElementById("appointmentsTable");
+    tableBody.innerHTML = "";
+
+    appointments.forEach(app => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${app.doctor}</td>
+            <td>${app.specialization}</td>
+            <td>${app.time_slot}</td>
+            <td>${app.date}</td>
+            <td>
+                <button onclick="cancelAppointment(${app.id})">Cancel</button>
+                <button onclick="modifyAppointment(${app.id})">Modify</button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+        let doctorsData = [];  
+
+        async function loadDoctors() {
+            try {
+                const response = await fetch("http://localhost:5000/doctors/available");
+                if (!response.ok) {
+                    throw new Error("Failed to load doctors.");
+                }
+
+                const doctors = await response.json();
+                doctorsData = doctors.doctors;
+
+                const doctorSelect = document.getElementById("doctorSelect");
+                doctorSelect.innerHTML = '<option value="">Select a Doctor</option>';
+
+                doctorsData.forEach(doc => {
+                    const option = document.createElement("option");
+                    option.value = doc.id;
+                    option.textContent = `${doc.name} --> ${doc.specialization}`;
+                    option.dataset.timeSlot = doc.time_slot;
+                    doctorSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error("Error loading doctors:", error);
+                alert("There was an error loading doctors.");
+            }
+        }
+
+        document.getElementById("doctorSelect").addEventListener("change", function () {
+            const doctorId = this.value;
+            if (!doctorId) return;
+
+            const selectedDoctor = doctorsData.find(doc => doc.id == doctorId);
+            if (!selectedDoctor) return;
+
+            let timeSlot = selectedDoctor.time_slots;
+            if (timeSlot.includes(",")) {
+                timeSlot = timeSlot.split(",");
+            } else {
+                timeSlot = [timeSlot];
+            }
+
+            const timeSlotsDiv = document.getElementById("timeSlots");
+            timeSlotsDiv.innerHTML = "";
+
+            timeSlot.forEach(slot => {
+                const label = document.createElement("label");
+                const input = document.createElement("input");
+                input.type = "checkbox";
+                input.name = "timeslot";
+                input.value = slot.trim();
+                label.appendChild(input);
+                label.appendChild(document.createTextNode(slot.trim()));
+                timeSlotsDiv.appendChild(label);
+                timeSlotsDiv.appendChild(document.createElement("br"));
+            });
+        });
+
+        // Populate date dropdown with the next 7 days
+function populateDateDropdown() {
+    const dateSelect = document.getElementById("dateSelect");
+    dateSelect.innerHTML = "";
+    
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+        const futureDate = new Date();
+        futureDate.setDate(today.getDate() + i);
+        
+        const option = document.createElement("option");
+        option.value = futureDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+        option.textContent = futureDate.toDateString(); // Example: "Mon Sep 25 2024"
+        dateSelect.appendChild(option);
+    }
+}
+
+// Modify booking function to include selected date
+document.getElementById("bookAppointment").addEventListener("click", function () {
+    const doctorId = document.getElementById("doctorSelect").value; 
+    const selectedTimeSlot = document.querySelector('input[name="timeslot"]:checked');  
+    const selectedDate = document.getElementById("dateSelect").value;
+
+    if (!doctorId || !selectedTimeSlot || !selectedDate) {
+        alert("Please select a doctor, time slot, and date.");
+        return;
+    }
+
+    const timeSlot = selectedTimeSlot.value;
+
+    const appointmentData = {
+        patient_name: patientname,
+        doctor_id: doctorId,
+        time_slot: timeSlot,
+        date: selectedDate  // Include date in request
+    };
+
+    fetch('http://localhost:5000/appointments/book', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(appointmentData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message); 
+        loadAppointments();  
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('There was an error booking the appointment. Please try again.');
+    });
+});
+loadAppointments();
+loadDoctors();
+
+// Call function on page load
+populateDateDropdown();
+
+
+        async function cancelAppointment(appointmentId) {
+            await fetch(`http://localhost:5000/appointments/cancel/${appointmentId}`, { method: "DELETE" });
+            alert("Appointment cancelled.");
+            loadAppointments();
+        }
+       
+        async function modifyAppointment(appointmentId) {
+    // Fetch the appointment details addEventListener
+    localStorage.setItem("appointmentId", appointmentId);
+    const appointmentResponse = await fetch(`http://localhost:5000/appointment/${appointmentId}`);
+    const appointmentData = await appointmentResponse.json();
+    const doctorId = appointmentData.doctor_id;
+
+    // Fetch available time slots for the doctor
+    const response = await fetch(`http://localhost:5000/doctor/${doctorId}/available_slots`);
+    const data = await response.json();
+    const availableSlots = data.available_slots;
+
+    // If there are available slots, show them in the modal
+    if (availableSlots.length > 0) {
+        let timeSlotsHtml = '';
+
+        availableSlots.forEach((slot, index) => {
+            timeSlotsHtml += `
+                <label>
+                    <input type="radio" name="time_slot" value="${slot}" id="time_slot_${index}">
+                    ${slot}
+                </label><br>
+            `;
+        });
+
+        // Show the modal with available time slots
+        document.getElementById('timeSlotsContainer').innerHTML = timeSlotsHtml;
+        document.getElementById('timeSlotModal').style.display = 'flex';
+    } else {
+        alert("No available slots left.");
+    }
+}
+
+// Close the modal
+function closeModal() {
+    document.getElementById('timeSlotModal').style.display = 'none';
+}
+
+// Submit the selected time slot
+async function submitTimeSlot() {
+    const selectedSlot = document.querySelector('input[name="time_slot"]:checked');
+    if (selectedSlot) {
+        const newTime = selectedSlot.value;
+        const appointmentId = localStorage.getItem("appointmentId");
+
+        // Update the appointment with the new time slot
+       console.log(newTime);
+        await updateAppointment(appointmentId, newTime);
+
+        // Reload the appointments after updating
+        loadAppointments();
+
+        // Close the modal
+        closeModal();
+    } else {
+        alert("Please select a time slot.");
+    }
+}
+
+
+
+async function updateAppointment(appointmentId, newTimeSlot) { 
+    console.log(newTimeSlot);
+    const response = await fetch(`http://localhost:5000/appointments/${appointmentId}/update`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            time_slot: newTimeSlot.toString()
+        })
+    });
+
+    if (response.ok) {
+        alert("Appointment updated successfully!");
+    } else {
+        alert("Failed to update appointment.");
+    }
+}
+
+function change() {
+            localStorage.removeItem("message");
+            localStorage.removeItem("patientName");
+            window.location.href = "index.html";
+        }
+
+    </script>
+</body>
+</html>
